@@ -189,7 +189,7 @@ elif input_method == "Upload File":
         else:
             try:
                 if uploaded_file.name.endswith(".csv"):
-                    df_temp = pd.read_csv(uploaded_file)
+                    df_temp = pd.read_csv(uploaded_file, sep=None, engine="python")
                     pasted_text = df_temp.to_string()
                 elif uploaded_file.name.endswith((".xlsx", ".xls")):
                     df_temp = pd.read_excel(uploaded_file)
