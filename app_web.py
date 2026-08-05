@@ -328,7 +328,7 @@ Return ONLY valid JSON matching this exact structure:
                             wk_total = df_wk_subset['amount'].sum()
                             st.caption(f"**Total Volume for {wk}:** {statement.currency} {wk_total:,.2f}")
 
-                    # --- Institutional Structured Excel Export with Professional Color Palette & Styling ---
+                    # --- Institutional Structured Excel Export with Full Professional Spreadsheet Colors ---
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.subheader("📥 Export Official Audit Report")
 
@@ -362,15 +362,17 @@ Return ONLY valid JSON matching this exact structure:
                         
                         worksheet = writer.sheets['Institutional Ledger']
                         
-                        # Define professional color fills and fonts (Executive Indigo Theme)
+                        # Executive Color Palette Styling
                         header_font = Font(name='Plus Jakarta Sans', size=11, bold=True, color="FFFFFF")
-                        header_fill = PatternFill(start_color="1E1B4B", end_color="1E1B4B", fill_type="solid")
+                        header_fill = PatternFill(start_color="1E1B4B", end_color="1E1B4B", fill_type="solid") # Dark Indigo
                         
                         section_font = Font(name='Plus Jakarta Sans', size=10, bold=True, color="1E1B4B")
-                        section_fill = PatternFill(start_color="E0E7FF", end_color="E0E7FF", fill_type="solid")
+                        section_fill = PatternFill(start_color="E0E7FF", end_color="E0E7FF", fill_type="solid") # Soft Blue Accent
                         
                         total_font = Font(name='Plus Jakarta Sans', size=10, bold=True, color="0F172A")
-                        total_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
+                        total_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid") # Slate Gray Accent
+                        
+                        zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid") # Light Zebra Striping
                         
                         thin_border = Border(
                             left=Side(style='thin', color='CBD5E1'),
@@ -387,7 +389,7 @@ Return ONLY valid JSON matching this exact structure:
                             cell.alignment = Alignment(horizontal="center", vertical="center")
                             cell.border = thin_border
 
-                        # Iterate through data rows to apply color highlights for section titles and subtotals
+                        # Iterate through data rows to apply professional color fills and borders
                         for r_idx in range(2, len(df_structured_export) + 2):
                             val_date = worksheet.cell(row=r_idx, column=1).value
                             val_desc = str(worksheet.cell(row=r_idx, column=2).value or '')
@@ -397,7 +399,7 @@ Return ONLY valid JSON matching this exact structure:
                                 cell.border = thin_border
                                 cell.font = Font(name='Plus Jakarta Sans', size=10)
                                 
-                                # Highlight Section Headers (e.g., === WEEK ONE ===)
+                                # Highlight Section Headers
                                 if val_date and str(val_date).startswith("==="):
                                     cell.font = section_font
                                     cell.fill = section_fill
@@ -408,6 +410,10 @@ Return ONLY valid JSON matching this exact structure:
                                 elif "TOTAL FOR" in val_desc:
                                     cell.font = total_font
                                     cell.fill = total_fill
+                                    
+                                # Apply Zebra striping to standard transaction rows
+                                elif r_idx % 2 == 0 and not str(val_date).startswith("==="):
+                                    cell.fill = zebra_fill
 
                         # Auto-adjust column widths
                         for col in worksheet.columns:
