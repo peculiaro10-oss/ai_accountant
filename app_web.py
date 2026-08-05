@@ -240,7 +240,7 @@ Extract all sales, income, and expense records, then return ONLY valid JSON matc
                         }
                     ]
                 else:
-                    selected_model = "llama-3.3-70b-versatile"
+                    selected_model = "llama-3.2-90b-vision-preview"
                     prompt = f"""
                     You are an expert AI Accountant. Parse the following accounting text and return ONLY valid JSON matching this exact structure:
                     {{
