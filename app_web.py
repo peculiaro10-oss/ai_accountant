@@ -165,7 +165,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 captured_image_bytes = None
 pasted_text = ""
 
-# 9. Dynamic Inputs Handling
+# 9. Dynamic Inputs Handling (Updated with Safe Try-Except File Parsing)
 if input_method == "Snap Photo of Book/Receipt":
     camera_photo = st.camera_input("Capture image of physical receipt or paper ledger")
     if camera_photo:
@@ -181,16 +181,23 @@ elif input_method == "Paste Text/Notes":
 elif input_method == "Upload File":
     uploaded_file = st.file_uploader(
         "Upload statement or ledger (CSV, TXT, Images)", 
-        type=["csv", "txt", "png", "jpg", "jpeg"]
+        type=["csv", "txt", "png", "jpg", "jpeg", "xlsx", "xls"]
     )
     if uploaded_file is not None:
         if uploaded_file.type.startswith("image"):
             captured_image_bytes = uploaded_file.getvalue()
-        elif uploaded_file.type == "text/csv":
-            df_temp = pd.read_csv(uploaded_file)
-            pasted_text = df_temp.to_string()
         else:
-            pasted_text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
+            try:
+                if uploaded_file.name.endswith(".csv"):
+                    df_temp = pd.read_csv(uploaded_file)
+                    pasted_text = df_temp.to_string()
+                elif uploaded_file.name.endswith((".xlsx", ".xls")):
+                    df_temp = pd.read_excel(uploaded_file)
+                    pasted_text = df_temp.to_string()
+                else:
+                    pasted_text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
+            except Exception as e:
+                st.error(f"❌ Error parsing file structure: {e}")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
