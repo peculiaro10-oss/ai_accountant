@@ -240,7 +240,6 @@ Extract all sales, income, and expense records, then return ONLY valid JSON matc
                         }
                     ]
                 
-{
   "model": "qwen/qwen3.6-27b",
   "messages": [
     {
@@ -260,8 +259,7 @@ Extract all sales, income, and expense records, then return ONLY valid JSON matc
     }
   ],
   "temperature": 1,
-  "max_completion_tokens": 1024
-}
+  "max_completion_tokens": 1024.
 else:
                     selected_model = "llama-3.3-70b-versatile"
                     prompt = f"""
