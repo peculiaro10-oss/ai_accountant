@@ -6,8 +6,6 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq
-from pydantic import BaseModel, Field
-from typing import List, Optional
 from PIL import Image
 
 # 1. Load secret environment variables (.env file)
@@ -131,7 +129,7 @@ m1, m2, m3 = st.columns(3)
 with m1:
     st.metric(label="System Status", value="Active", delta="Ready")
 with m2:
-    st.metric(label="AI Engine", value="Groq Qwen Engine", delta="Ultra-Fast")
+    st.metric(label="AI Engine", value="Groq LLaMA-3.3", delta="Ultra-Fast")
 with m3:
     st.metric(label="Audit Security", value="Encrypted", delta="Local .env")
 
@@ -187,14 +185,15 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
     elif not captured_image_bytes and not pasted_text.strip():
         st.warning("⚠️ Please snap a photo, upload a document, or paste transaction notes first.")
     else:
-        with st.spinner("⚡ Processing records with Groq AI engine..."):
+        with st.spinner("⚡ Processing records with Groq LLaMA engine..."):
             try:
                 client = Groq(api_key=api_key)
                 
+                # Using current stable multimodal/text models
                 if captured_image_bytes:
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
-                    selected_model = "qwen/qwen3.6-27b"
+                    selected_model = "qwen/qwen3.6-27b"  # Current supported multimodal model on Groq
                     
                     messages = [
                         {
@@ -214,7 +213,7 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                         }
                     ]
                 else:
-                    selected_model = "qwen/qwen3.6-27b"
+                    selected_model = "llama-3.3-70b-versatile"
                     prompt = f"""
                     You are an expert AI Accountant. Parse the following accounting text, itemize all transactions clearly, calculate totals, and present a structured accounting report using clean markdown tables.
 
@@ -230,11 +229,8 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
 
                 raw_output = response.choices[0].message.content
 
-                # Clean out think tags and stars
-                clean_output = re.sub(r'<think>.*?</think>', '', raw_output, flags=re.DOTALL | re.IGNORECASE)
-                clean_output = re.sub(r'</?think>', '', clean_output, flags=re.IGNORECASE)
-                clean_output = clean_output.replace('**', '')
-                clean_output = clean_output.strip()
+                # Clean out any residual formatting tags
+                clean_output = re.sub(r'(?i)<think>.*?</think>', '', raw_output, flags=re.DOTALL).strip()
 
                 st.success("✅ Financial Processing Complete!")
                 st.markdown(clean_output)
