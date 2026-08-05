@@ -29,7 +29,6 @@ st.set_page_config(
 
 # 3. Helper Function to Compress Images
 def compress_image(image_bytes: bytes, max_size: tuple = (640, 640), quality: int = 50) -> bytes:
-    """Resizes and compresses image bytes aggressively to speed up API requests."""
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
@@ -161,7 +160,7 @@ with m3:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 8. Selection Mode (Now supporting Word .docx upload)
+# 8. Selection Mode
 st.subheader("Select Ledger Input Method")
 input_method = st.radio(
     "Choose Input Method:",
@@ -336,7 +335,6 @@ Return ONLY valid JSON matching this exact structure:
                     excel_filename = f"{sanitized_org_name}_Audit_{current_date_str}.xlsx"
                     word_filename = f"{sanitized_org_name}_Audit_{current_date_str}.docx"
 
-                    # Prepare export rows data structure
                     export_rows = []
                     for wk in unique_weeks:
                         df_wk_subset = df_result[df_result['period_week'] == wk]
@@ -428,8 +426,6 @@ Return ONLY valid JSON matching this exact structure:
                         hdr_cells[i].text = h_text
                         hdr_cells[i].paragraphs[0].runs[0].font.bold = True
                         hdr_cells[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
-                        shading = parse_xml(r'<w:shd {} w:fill="1E1B4B"/>'.format(nsdecls('w')))
-                        hdr_cells[i]._tc.get_or_add_tcPr().append(shading)
 
                     for row_item in export_rows:
                         row_cells = table.add_row().cells
