@@ -195,7 +195,7 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                 if captured_image_bytes:
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
-                    selected_model = "llama-3.2-11b-vision-preview"
+                    selected_model = "qwen/qwen3.6-27b"
                     
                     messages = [
                         {
@@ -215,7 +215,7 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                         }
                     ]
                 else:
-                    selected_model = "llama-3.3-70b-versatile"
+                    selected_model = "qwen/qwen3.6-27b"
                     prompt = f"""
                     You are an expert AI Accountant. Parse the following accounting text, itemize all transactions clearly, calculate totals, and present a structured accounting report using clean markdown tables.
 
