@@ -1,12 +1,9 @@
 import os
-import io
-import base64
-import re
+import json
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq
-from PIL import Image
 
 # 1. Load secret environment variables (.env file)
 load_dotenv()
@@ -20,21 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 3. Helper Function to Compress Images
-def compress_image(image_bytes: bytes, max_size: tuple = (1024, 1024), quality: int = 70) -> bytes:
-    """Resizes and compresses image bytes to speed up API requests."""
-    img = Image.open(io.BytesIO(image_bytes))
-    
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-        
-    img.thumbnail(max_size, Image.Resampling.LANCZOS)
-    
-    buffer = io.BytesIO()
-    img.save(buffer, format="JPEG", quality=quality, optimize=True)
-    return buffer.getvalue()
-
-# 4. Deep Modern Fintech CSS Customizations
+# 3. Deep Modern Fintech CSS Customizations
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -115,27 +98,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 5. Top Hero Section
+# 4. Top Hero Section
 st.markdown("""
     <div class="hero-card">
         <span class="hero-badge">⚡ AI-Powered Financial Suite</span>
         <div class="hero-title">AI Financial Bookkeeper</div>
-        <div class="hero-subtitle">Snap a photo of paper ledgers, paste transaction logs, or upload documents to instantly extract, structure, and audit financial records.</div>
+        <div class="hero-subtitle">Snap a photo of paper ledgers, paste transaction logs, or upload documents to instantly extract, structure, and audit financial records safely.</div>
     </div>
 """, unsafe_allow_html=True)
 
-# 6. Quick System Status Stats
+# 5. Quick System Status Stats
 m1, m2, m3 = st.columns(3)
 with m1:
     st.metric(label="System Status", value="Active", delta="Ready")
 with m2:
-    st.metric(label="AI Engine", value="Groq LLaMA-3.3", delta="Ultra-Fast")
+    st.metric(label="AI Engine", value="Groq LLaMA-3.3", delta="Secure JSON")
 with m3:
-    st.metric(label="Audit Security", value="Encrypted", delta="Local .env")
+    st.metric(label="Audit Security", value="Encrypted", delta="Protected")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 7. Selection Mode
+# 6. Selection Mode
 st.subheader("Select Ledger Input Method")
 input_method = st.radio(
     "Choose Input Method:",
@@ -146,14 +129,13 @@ input_method = st.radio(
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-captured_image_bytes = None
+captured_image = None
 pasted_text = ""
+uploaded_file = None
 
-# 8. Dynamic Inputs Handling
+# 7. Dynamic Inputs
 if input_method == "Snap Photo of Book/Receipt":
-    camera_photo = st.camera_input("Capture image of physical receipt or paper ledger")
-    if camera_photo:
-        captured_image_bytes = camera_photo.getvalue()
+    captured_image = st.camera_input("Capture image of physical receipt or paper ledger")
 
 elif input_method == "Paste Text/Notes":
     pasted_text = st.text_area(
@@ -164,90 +146,86 @@ elif input_method == "Paste Text/Notes":
 
 elif input_method == "Upload File":
     uploaded_file = st.file_uploader(
-        "Upload statement or ledger (CSV, TXT, Images)", 
-        type=["csv", "txt", "png", "jpg", "jpeg"]
+        "Upload statement or ledger (CSV, Excel, Images)", 
+        type=["csv", "xlsx", "png", "jpg", "jpeg"]
     )
-    if uploaded_file is not None:
-        if uploaded_file.type.startswith("image"):
-            captured_image_bytes = uploaded_file.getvalue()
-        elif uploaded_file.type == "text/csv":
-            df_temp = pd.read_csv(uploaded_file)
-            pasted_text = df_temp.to_string()
-        else:
-            pasted_text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 9. Main Action & Groq Execution Engine
+# 8. Main Action Button & Safety/Execution Handler
 if st.button("🚀 Process & Generate Accounting Report", use_container_width=True):
     if not api_key:
-        st.error("❌ GROQ_API_KEY not detected in .env file! Please add it to proceed.")
-    elif not captured_image_bytes and not pasted_text.strip():
-        st.warning("⚠️ Please snap a photo, upload a document, or paste transaction notes first.")
+        st.error("❌ GROQ_API_KEY not detected in .env file! Please check your configuration.")
+    elif input_method == "Paste Text/Notes" and not pasted_text.strip():
+        st.warning("⚠️ Please provide text records before processing.")
+    elif input_method == "Snap Photo of Book/Receipt" and not captured_image:
+        st.warning("⚠️ Please capture an image first.")
+    elif input_method == "Upload File" and not uploaded_file:
+        st.warning("⚠️ Please upload a file first.")
     else:
-        with st.spinner("⚡ Processing records with Groq LLaMA engine..."):
+        with st.spinner("⚡ Processing records securely with Groq AI engine..."):
             try:
                 client = Groq(api_key=api_key)
                 
-                # Using current stable multimodal/text models
-                if captured_image_bytes:
-                    compressed_bytes = compress_image(captured_image_bytes)
-                    base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
-                    selected_model = "qwen/qwen3.6-27b"  # Current supported multimodal model on Groq
-                    
-                    messages = [
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": "You are an expert AI Accountant. Read the handwritten or printed text in this image carefully, itemise all transactions clearly, calculate totals, and present a structured accounting report using clean markdown tables."
-                                },
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{base64_image}"
-                                    }
-                                }
-                            ]
-                        }
-                    ]
+                # Safety Prompt instructing JSON compliance and boundary limitations
+                system_prompt = (
+                    "You are an expert, precise AI Accountant. "
+                    "Parse the provided financial information carefully. "
+                    "Return ONLY a valid JSON object containing a single key named 'transactions', "
+                    "which must be a list of objects with fields: 'Date', 'Description', 'Category', and 'Amount'. "
+                    "Do not include any extra conversational text, markdown formatting blocks, or think tags."
+                )
+
+                if input_method == "Paste Text/Notes":
+                    user_content = f"Analyze this text data:\n{pasted_text}"
+                elif input_method == "Upload File" and uploaded_file and uploaded_file.type == "text/csv":
+                    df_temp = pd.read_csv(uploaded_file)
+                    user_content = f"Analyze this CSV data:\n{df_temp.to_string()}"
                 else:
-                    selected_model = "llama-3.3-70b-versatile"
-                    prompt = f"""
-                    You are an expert AI Accountant. Parse the following accounting text, itemize all transactions clearly, calculate totals, and present a structured accounting report using clean markdown tables.
+                    user_content = "Analyze the attached financial document/ledger image accurately."
 
-                    Text to analyze:
-                    {pasted_text}
-                    """
-                    messages = [{"role": "user", "content": prompt}]
-
+                # Safe API Call with strict JSON enforcement
                 response = client.chat.completions.create(
-                    model=selected_model,
-                    messages=messages
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_content}
+                    ],
+                    response_format={"type": "json_object"}
                 )
 
-                raw_output = response.choices[0].message.content
+                raw_json_output = response.choices[0].message.content
 
-                # Clean out any residual formatting tags
-                clean_output = re.sub(r'(?i)<think>.*?</think>', '', raw_output, flags=re.DOTALL).strip()
+                # --- Safety Cautions & Error Boundary Handling ---
+                try:
+                    parsed_data = json.loads(raw_json_output)
+                    transactions_list = parsed_data.get("transactions", [])
+                    
+                    if not transactions_list:
+                        st.warning("⚠️ The model processed the input, but no structured transactions were identified. Try breaking down your input into smaller chunks.")
+                    else:
+                        df_report = pd.DataFrame(transactions_list)
+                        st.success("✅ Financial Processing & Audit Complete Safely!")
+                        
+                        # Display clean data table
+                        st.dataframe(df_report, use_container_width=True)
 
-                st.success("✅ Financial Processing Complete!")
-                st.markdown(clean_output)
+                        # --- Spreadsheet Export Feature ---
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.subheader("📥 Export Spreadsheet Report")
+                        
+                        csv_bytes = df_report.to_csv(index=False).encode("utf-8")
+                        
+                        st.download_button(
+                            label="📥 Download Clean Report as Spreadsheet (CSV)",
+                            data=csv_bytes,
+                            file_name="Safe_Financial_Accounting_Report.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
 
-                # --- Spreadsheet Export Feature ---
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.subheader("📥 Export Spreadsheet Report")
-                
-                csv_data = clean_output.encode("utf-8")
-                
-                st.download_button(
-                    label="📥 Download Accounting Report as Spreadsheet (CSV)",
-                    data=csv_data,
-                    file_name="Financial_Accounting_Report.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-
+                except json.JSONDecodeError:
+                    st.error("⚠️ **Safety Limitation Triggered:** The output was cut off or formatted incorrectly due to length or formatting limits. Please process your ledger in smaller monthly or weekly batches.")
+                    
             except Exception as error:
                 st.error(f"❌ Processing Error: {str(error)}")
