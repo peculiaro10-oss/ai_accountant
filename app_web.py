@@ -9,9 +9,9 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from PIL import Image
 
-# 1. Load secret environment variables (.env file)
+# 1. Load secret environment variables (.env locally, st.secrets on cloud)
 load_dotenv()
-api_key = os.getenv("GROQ_API_KEY")
+api_key = st.secrets.get("GROQ_API_KEY")
 
 # 2. Page Config
 st.set_page_config(
@@ -197,7 +197,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # 10. Main Action & Groq Execution Engine
 if st.button("🚀 Process & Generate Accounting Report", use_container_width=True):
     if not api_key:
-        st.error("❌ GROQ_API_KEY not detected in .env file! Please add it to proceed.")
+        st.error("❌ GROQ_API_KEY not detected not detected! Please add it to Streamlit Secrets.")
     elif not captured_image_bytes and not pasted_text.strip():
         st.warning("⚠️ Please snap a photo, upload a document, or paste transaction notes first.")
     else:
