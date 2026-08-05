@@ -165,7 +165,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 captured_image_bytes = None
 pasted_text = ""
 
-# 9. Dynamic Inputs Handling (Updated with Safe Try-Except File Parsing)
+# 9. Dynamic Inputs Handling (Robust Fallback Parsing Added)
 if input_method == "Snap Photo of Book/Receipt":
     camera_photo = st.camera_input("Capture image of physical receipt or paper ledger")
     if camera_photo:
@@ -180,7 +180,7 @@ elif input_method == "Paste Text/Notes":
 
 elif input_method == "Upload File":
     uploaded_file = st.file_uploader(
-        "Upload statement or ledger (CSV, TXT, Images)", 
+        "Upload statement or ledger (CSV, TXT, Images, Excel)", 
         type=["csv", "txt", "png", "jpg", "jpeg", "xlsx", "xls"]
     )
     if uploaded_file is not None:
@@ -189,8 +189,12 @@ elif input_method == "Upload File":
         else:
             try:
                 if uploaded_file.name.endswith(".csv"):
-                    df_temp = pd.read_csv(uploaded_file, sep=None, engine="python")
-                    pasted_text = df_temp.to_string()
+                    try:
+                        df_temp = pd.read_csv(uploaded_file)
+                        pasted_text = df_temp.to_string()
+                    except Exception:
+                        uploaded_file.seek(0)
+                        pasted_text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
                 elif uploaded_file.name.endswith((".xlsx", ".xls")):
                     df_temp = pd.read_excel(uploaded_file)
                     pasted_text = df_temp.to_string()
@@ -214,7 +218,6 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                 
                 # Check if handling Vision/Image input or standard Text input
                 if captured_image_bytes:
-                    # Compress the image before encoding to Base64
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
                     selected_model = "qwen/qwen3.6-27b"
