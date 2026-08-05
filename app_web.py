@@ -212,7 +212,7 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
                     selected_model = "qwen/qwen3.6-27b"
                     
-                    messages = [
+                    messages = 
                         {
                             "role": "user",
                             "content": [
@@ -227,8 +227,8 @@ Itemise all transaction clearly, calculate totals, and present a structured acco
                                     }
                                 }
                             }
-                        }
-                    ]
+                        ]
+                    }
                 else:
                     selected_model = "qwen/qwen3.6-27b"
                     prompt = (
