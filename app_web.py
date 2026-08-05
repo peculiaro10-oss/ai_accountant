@@ -210,7 +210,7 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                     # Compress the image before encoding to Base64
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
-                    selected_model = "llama-3.2-11b-vision-preview"
+                    selected_model = "qwen/qwen3.6-27b"
                     
                     messages = [
                         {
