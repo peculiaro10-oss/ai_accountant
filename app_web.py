@@ -219,17 +219,7 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                                 {
                                     "type": "text",
                                     "text": """You are an expert AI Accountant. Read the handwritten or printed text in this image carefully. 
-Extract all sales, income, and expense records, then return ONLY valid JSON matching this exact structure:
-{
-  "business_name": "string",
-  "period": "string",
-  "currency": "string",
-  "reported_grand_total": 0.0,
-  "transactions": [
-    {"date": "YYYY-MM-DD", "description": "item name", "category": "category name", "amount": 0.0}
-  ]
-}"""
-                                },
+Itemise all transaction clearly, calculate totals, and present a structured accounting report using clean makdown tables."""
                                 {
                                     "type": "image_url",
                                     "image_url": {
@@ -241,18 +231,11 @@ Extract all sales, income, and expense records, then return ONLY valid JSON matc
                     ]
                 else:
                     selected_model = "qwen/qwen3.6-27b"
-                    prompt = f"""
-                    You are an expert AI Accountant. Parse the following accounting text and return ONLY valid JSON matching this exact structure:
-                    {{
-                      "business_name": "string",
-                      "period": "string",
-                      "currency": "string",
-                      "reported_grand_total": 0.0,
-                      "transactions": [
-                        {{"date": "YYYY-MM-DD", "description": "item name", "category": "category name", "amount": 0.0}}
-                      ]
-                    }}
-
+                    prompt = (
+                    You are an expert AI Accountant. Analyse the attached document or notes, "
+"itemize all transaction clearly, calculate the totals and present a structured "
+"accounting report using clean markdown tables."   )                 {{
+                     
                     Text to analyze:
                     {pasted_text}
                     """
@@ -262,35 +245,14 @@ Extract all sales, income, and expense records, then return ONLY valid JSON matc
                 response = client.chat.completions.create(
                     model=selected_model,
                     messages=messages,
-                    response_format={"type": "json_object"}
-                )
+                                  )
 
-                json_output = response.choices[0].message.content
-                statement = FinancialStatement.model_validate_json(json_output)
-
+                report_output = response.choices[0].message.content
+                
                 st.success("✅ Financial Processing Complete!")
+                st.markdown(report_output)
 
-                # Display Results Overview Metrics
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Business Name", statement.business_name)
-                c2.metric("Reporting Period", statement.period)
-                c3.metric("Calculated Total", f"{statement.currency} {statement.reported_grand_total:,.2f}")
-
-                st.markdown("<br>", unsafe_allow_html=True)
-
-                # Display Transaction Table and Download Button
-                if statement.transactions:
-                    st.subheader("📋 Audit General Ledger")
-                    tx_data = [t.model_dump() for t in statement.transactions]
-                    df_result = pd.DataFrame(tx_data)
-                    st.dataframe(df_result, use_container_width=True)
-
-                    excel_filename = "Financial_Ledger_Report.xlsx"
-                    df_result.to_excel(excel_filename, index=False)
-                    
-                    with open(excel_filename, "rb") as file_data:
-                        st.download_button(
-                            label="📥 Download Structured Excel Spreadsheet",
+                                   label="📥 Download Structured Excel Spreadsheet",
                             data=file_data,
                             file_name=f"{statement.business_name}_Ledger.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
