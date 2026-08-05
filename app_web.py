@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from PIL import Image
 from datetime import datetime
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 # 1. Load secret environment variables (.env file)
 load_dotenv()
@@ -328,7 +328,7 @@ Return ONLY valid JSON matching this exact structure:
                             wk_total = df_wk_subset['amount'].sum()
                             st.caption(f"**Total Volume for {wk}:** {statement.currency} {wk_total:,.2f}")
 
-                    # --- Institutional Structured Excel Export with Uppercase & Bold Headers ---
+                    # --- Institutional Structured Excel Export with Professional Color Palette & Styling ---
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.subheader("📥 Export Official Audit Report")
 
@@ -362,21 +362,58 @@ Return ONLY valid JSON matching this exact structure:
                         
                         worksheet = writer.sheets['Institutional Ledger']
                         
-                        # Apply Bold & Uppercase styling to header row (Row 1)
+                        # Define professional color fills and fonts (Executive Indigo Theme)
                         header_font = Font(name='Plus Jakarta Sans', size=11, bold=True, color="FFFFFF")
                         header_fill = PatternFill(start_color="1E1B4B", end_color="1E1B4B", fill_type="solid")
                         
+                        section_font = Font(name='Plus Jakarta Sans', size=10, bold=True, color="1E1B4B")
+                        section_fill = PatternFill(start_color="E0E7FF", end_color="E0E7FF", fill_type="solid")
+                        
+                        total_font = Font(name='Plus Jakarta Sans', size=10, bold=True, color="0F172A")
+                        total_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
+                        
+                        thin_border = Border(
+                            left=Side(style='thin', color='CBD5E1'),
+                            right=Side(style='thin', color='CBD5E1'),
+                            top=Side(style='thin', color='CBD5E1'),
+                            bottom=Side(style='thin', color='CBD5E1')
+                        )
+
+                        # Style Header Row (Row 1)
                         for col_num in range(1, len(df_structured_export.columns) + 1):
                             cell = worksheet.cell(row=1, column=col_num)
                             cell.font = header_font
                             cell.fill = header_fill
                             cell.alignment = Alignment(horizontal="center", vertical="center")
+                            cell.border = thin_border
+
+                        # Iterate through data rows to apply color highlights for section titles and subtotals
+                        for r_idx in range(2, len(df_structured_export) + 2):
+                            val_date = worksheet.cell(row=r_idx, column=1).value
+                            val_desc = str(worksheet.cell(row=r_idx, column=2).value or '')
+                            
+                            for c_idx in range(1, len(df_structured_export.columns) + 1):
+                                cell = worksheet.cell(row=r_idx, column=c_idx)
+                                cell.border = thin_border
+                                cell.font = Font(name='Plus Jakarta Sans', size=10)
+                                
+                                # Highlight Section Headers (e.g., === WEEK ONE ===)
+                                if val_date and str(val_date).startswith("==="):
+                                    cell.font = section_font
+                                    cell.fill = section_fill
+                                    if c_idx == 1:
+                                        cell.alignment = Alignment(horizontal="left", vertical="center")
+                                        
+                                # Highlight Subtotals
+                                elif "TOTAL FOR" in val_desc:
+                                    cell.font = total_font
+                                    cell.fill = total_fill
 
                         # Auto-adjust column widths
                         for col in worksheet.columns:
                             max_len = max(len(str(cell.value or '')) for cell in col)
                             col_letter = col[0].column_letter
-                            worksheet.column_dimensions[col_letter].width = max(max_len + 4, 16)
+                            worksheet.column_dimensions[col_letter].width = max(max_len + 4, 18)
                     
                     with open(excel_filename, "rb") as file_data:
                         st.download_button(
