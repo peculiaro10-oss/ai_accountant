@@ -278,6 +278,11 @@ Extract all sales, income, and expense records, then return ONLY valid JSON matc
                 json_output = response.choices[0].message.content
                 statement = FinancialStatement.model_validate_json(json_output)
 
+                # Automatically calculate the total sum of all extracted transactions
+                if statement.transactions:
+                    calculated_sum = sum(t.amount for t in statement.transactions if t.amount is not None)
+                    statement.reported_grand_total = calculated_sum
+
                 st.success("✅ Financial Processing Complete!")
 
                 # Display Results Overview Metrics
