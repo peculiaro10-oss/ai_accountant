@@ -21,6 +21,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+st.markdown(
+    '<meta name="google-site-verification" content="xPwQrLl9pCVFl-HlCn" />', 
+    unsafe_allow_html=True
+)
+
 # 3. Helper Function to Compress Images
 def compress_image(image_bytes: bytes, max_size: tuple = (640, 640), quality: int = 50) -> bytes:
     """Resizes and compresses image bytes aggressively to speed up API requests and stay within API token rate limits."""
