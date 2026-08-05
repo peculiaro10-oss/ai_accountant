@@ -239,28 +239,7 @@ Extract all sales, income, and expense records, then return ONLY valid JSON matc
                             ]
                         }
                     ]
-                
-  "model": "qwen/qwen3.6-27b",
-  "messages": [
-    {
-      "role": "user",
-      "content": [
-        {
-          "type": "text",
-          "text": "What is in this image?"
-        },
-        {
-          "type": "image_url",
-          "image_url": {
-            "url": "data:image/jpeg;base64,YOUR_BASE64_STRING_HERE"
-          }
-        }
-      ]
-    }
-  ],
-  "temperature": 1,
-  "max_completion_tokens": 1024.
-else:
+                else:
                     selected_model = "llama-3.3-70b-versatile"
                     prompt = f"""
                     You are an expert AI Accountant. Parse the following accounting text and return ONLY valid JSON matching this exact structure:
