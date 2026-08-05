@@ -22,7 +22,7 @@ st.set_page_config(
 )
 
 st.markdown(
-    <meta name="google-site-verification" content="xPwQrLl9pCVFl-HlCn7LZCaf0rzzD0D5BBwaRjGmwJw" />
+    '<meta name="google-site-verification" content="xPwQrLl9pCVFl-HlCn7LZCaf0rzzD0D5BBwaRjGmwJw" />',
     unsafe_allow_html=True
 )
 
