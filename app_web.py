@@ -26,7 +26,6 @@ def compress_image(image_bytes: bytes, max_size: tuple = (1024, 1024), quality: 
     """Resizes and compresses image bytes to speed up API requests."""
     img = Image.open(io.BytesIO(image_bytes))
     
-    # Convert RGBA/PNG to RGB for JPEG conversion
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
         
@@ -191,13 +190,18 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
             try:
                 client = Groq(api_key=api_key)
                 
-                # Check if handling Vision/Image input or standard Text input
+                system_instructions = (
+                    "Do not include any thinking processes, internal monologue, or <think> tags. "
+                    "Output ONLY the final clean markdown accounting report and tables directly."
+                )
+                
                 if captured_image_bytes:
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
                     selected_model = "qwen/qwen3.6-27b"
                     
                     messages = [
+                        {"role": "system", "content": system_instructions},
                         {
                             "role": "user",
                             "content": [
@@ -222,9 +226,11 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                     Text to analyze:
                     {pasted_text}
                     """
-                    messages = [{"role": "user", "content": prompt}]
+                    messages = [
+                        {"role": "system", "content": system_instructions},
+                        {"role": "user", "content": prompt}
+                    ]
 
-                # API Call to Groq
                 response = client.chat.completions.create(
                     model=selected_model,
                     messages=messages
@@ -239,7 +245,6 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.subheader("📥 Export Spreadsheet Report")
                 
-                # Convert markdown table blocks or raw report text into a downloadable CSV file format
                 csv_data = report_output.encode("utf-8")
                 
                 st.download_button(
