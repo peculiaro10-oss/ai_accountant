@@ -227,14 +227,17 @@ def uppercase_headers(df):
 
 # 10. Main Action & Groq Execution Engine
 if st.button("🚀 Process & Generate Accounting Report", use_container_width=True):
-    if not api_key:
-        st.error("❌ GROQ_API_KEY not detected in .env file! Please add it to proceed.")
+    # Retrieve API key from Streamlit secrets or environment variables
+    active_api_key = st.secrets.get("GROQ_API_KEY") or api_key
+    
+    if not active_api_key:
+        st.error("❌ GROQ_API_KEY not detected! Please add it to Streamlit Secrets or your .env file.")
     elif not captured_image_bytes and not pasted_text.strip():
         st.warning("⚠️ Please snap a photo, upload a document, or paste transaction notes first.")
     else:
         with st.spinner("⚡ Processing records into hierarchical ledger format with Groq AI..."):
             try:
-                client = Groq(api_key=api_key)
+                client = Groq(api_key=active_api_key)
                 
                 system_instructions = """You are an expert corporate AI Accountant and Auditor. Read the records carefully and structure them hierarchically like institutional ledgers (separated by operational weeks/periods like WEEK ONE, WEEK TWO, flow types like INCOME or EXPENSE, and categories). 
 If a date is not provided for a transaction, infer a realistic date or default to the start of the reporting period (e.g., 2026-06-01).
