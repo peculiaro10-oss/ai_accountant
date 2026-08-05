@@ -1,6 +1,7 @@
 import os
 import io
 import base64
+import re
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
@@ -190,18 +191,12 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
             try:
                 client = Groq(api_key=api_key)
                 
-                system_instructions = (
-                    "Do not include any thinking processes, internal monologue, or <think> tags. "
-                    "Output ONLY the final clean markdown accounting report and tables directly."
-                )
-                
                 if captured_image_bytes:
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
                     selected_model = "qwen/qwen3.6-27b"
                     
                     messages = [
-                        {"role": "system", "content": system_instructions},
                         {
                             "role": "user",
                             "content": [
@@ -226,26 +221,26 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                     Text to analyze:
                     {pasted_text}
                     """
-                    messages = [
-                        {"role": "system", "content": system_instructions},
-                        {"role": "user", "content": prompt}
-                    ]
+                    messages = [{"role": "user", "content": prompt}]
 
                 response = client.chat.completions.create(
                     model=selected_model,
                     messages=messages
                 )
 
-                report_output = response.choices[0].message.content
+                raw_output = response.choices[0].message.content
+
+                # Clean out the <think>...</think> block completely using Regex
+                clean_output = re.sub(r'<think>.*?</think>', '', raw_output, flags=re.DOTALL).strip()
 
                 st.success("✅ Financial Processing Complete!")
-                st.markdown(report_output)
+                st.markdown(clean_output)
 
                 # --- Spreadsheet Export Feature ---
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.subheader("📥 Export Spreadsheet Report")
                 
-                csv_data = report_output.encode("utf-8")
+                csv_data = clean_output.encode("utf-8")
                 
                 st.download_button(
                     label="📥 Download Accounting Report as Spreadsheet (CSV)",
