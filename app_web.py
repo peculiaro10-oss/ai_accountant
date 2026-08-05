@@ -324,7 +324,7 @@ Extract all records, assign clean universal business categories (e.g., Revenue, 
                             cat_subtotal = df_cat_subset['amount'].sum()
                             st.caption(f"**Subtotal for {cat}:** {statement.currency} {cat_subtotal:,.2f}")
 
-                    # --- Professional Timestamped Excel Export ---
+                    # --- Professional Multi-Tab Categorized Excel Export ---
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.subheader("📥 Export Official Audit Report")
 
@@ -332,11 +332,19 @@ Extract all records, assign clean universal business categories (e.g., Revenue, 
                     sanitized_org_name = statement.business_name.replace(" ", "_")
                     excel_filename = f"{sanitized_org_name}_Audit_{current_date_str}.xlsx"
                     
-                    df_result.to_excel(excel_filename, index=False)
+                    with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
+                        # 1. Master Ledger Tab
+                        df_result.to_excel(writer, sheet_name='Master_Ledger', index=False)
+                        
+                        # 2. Individual Category Tabs
+                        for cat in unique_categories:
+                            df_cat_subset = df_result[df_result['category'] == cat]
+                            safe_sheet_name = ''.join(e for e in cat if e.isalnum() or e.isspace())[:30].strip()
+                            df_cat_subset.to_excel(writer, sheet_name=safe_sheet_name, index=False)
                     
                     with open(excel_filename, "rb") as file_data:
                         st.download_button(
-                            label="📥 Download Official Formatted Excel Spreadsheet",
+                            label="📥 Download Multi-Tab Categorized Excel Report",
                             data=file_data,
                             file_name=excel_filename,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
