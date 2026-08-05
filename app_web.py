@@ -131,7 +131,7 @@ m1, m2, m3 = st.columns(3)
 with m1:
     st.metric(label="System Status", value="Active", delta="Ready")
 with m2:
-    st.metric(label="AI Engine", value="Groq LLaMA-3", delta="Ultra-Fast")
+    st.metric(label="AI Engine", value="Groq Qwen Engine", delta="Ultra-Fast")
 with m3:
     st.metric(label="Audit Security", value="Encrypted", delta="Local .env")
 
@@ -224,7 +224,7 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                     """
                     messages = [{"role": "user", "content": prompt}]
 
-                # API Call to Groq (Strict JSON parameter removed)
+                # API Call to Groq
                 response = client.chat.completions.create(
                     model=selected_model,
                     messages=messages
@@ -234,6 +234,21 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
 
                 st.success("✅ Financial Processing Complete!")
                 st.markdown(report_output)
+
+                # --- Spreadsheet Export Feature ---
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.subheader("📥 Export Spreadsheet Report")
+                
+                # Convert markdown table blocks or raw report text into a downloadable CSV file format
+                csv_data = report_output.encode("utf-8")
+                
+                st.download_button(
+                    label="📥 Download Accounting Report as Spreadsheet (CSV)",
+                    data=csv_data,
+                    file_name="Financial_Accounting_Report.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
 
             except Exception as error:
                 st.error(f"❌ Processing Error: {str(error)}")
