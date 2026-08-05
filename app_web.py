@@ -9,9 +9,9 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from PIL import Image
 
-# 1. Load secret environment variables (.env locally, st.secrets on cloud)
+# 1. Load secret environment variables (.env file)
 load_dotenv()
-api_key = st.secrets.get("GROQ_API_KEY")
+api_key = os.getenv("GROQ_API_KEY")
 
 # 2. Page Config
 st.set_page_config(
@@ -36,21 +36,7 @@ def compress_image(image_bytes: bytes, max_size: tuple = (1024, 1024), quality: 
     img.save(buffer, format="JPEG", quality=quality, optimize=True)
     return buffer.getvalue()
 
-# 4. Pydantic Schemas for Structured AI Outputs
-class Transaction(BaseModel):
-    date: Optional[str] = Field(None, description="Date of transaction in YYYY-MM-DD or original format")
-    description: str = Field(..., description="Description of the item or service")
-    category: str = Field(..., description="Category like Revenue, Rent, Fuel, Supplies, Equipment")
-    amount: float = Field(..., description="Numerical cost or income amount")
-
-class FinancialStatement(BaseModel):
-    business_name: str = Field("Unknown Business", description="Name of business")
-    period: str = Field("Unknown Period", description="Time period covered")
-    currency: str = Field("NGN", description="Currency symbol or code")
-    reported_grand_total: float = Field(0.0, description="Calculated grand total of transactions")
-    transactions: List[Transaction] = Field(default_factory=list, description="List of extracted transactions")
-
-# 5. Deep Modern Fintech CSS Customizations
+# 4. Deep Modern Fintech CSS Customizations
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -131,7 +117,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 6. Top Hero Section
+# 5. Top Hero Section
 st.markdown("""
     <div class="hero-card">
         <span class="hero-badge">⚡ AI-Powered Financial Suite</span>
@@ -140,7 +126,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# 7. Quick System Status Stats
+# 6. Quick System Status Stats
 m1, m2, m3 = st.columns(3)
 with m1:
     st.metric(label="System Status", value="Active", delta="Ready")
@@ -151,7 +137,7 @@ with m3:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 8. Selection Mode
+# 7. Selection Mode
 st.subheader("Select Ledger Input Method")
 input_method = st.radio(
     "Choose Input Method:",
@@ -165,7 +151,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 captured_image_bytes = None
 pasted_text = ""
 
-# 9. Dynamic Inputs Handling
+# 8. Dynamic Inputs Handling
 if input_method == "Snap Photo of Book/Receipt":
     camera_photo = st.camera_input("Capture image of physical receipt or paper ledger")
     if camera_photo:
@@ -194,10 +180,10 @@ elif input_method == "Upload File":
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 10. Main Action & Groq Execution Engine
+# 9. Main Action & Groq Execution Engine
 if st.button("🚀 Process & Generate Accounting Report", use_container_width=True):
     if not api_key:
-        st.error("❌ GROQ_API_KEY not detected not detected! Please add it to Streamlit Secrets.")
+        st.error("❌ GROQ_API_KEY not detected in .env file! Please add it to proceed.")
     elif not captured_image_bytes and not pasted_text.strip():
         st.warning("⚠️ Please snap a photo, upload a document, or paste transaction notes first.")
     else:
@@ -207,57 +193,47 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                 
                 # Check if handling Vision/Image input or standard Text input
                 if captured_image_bytes:
-                    # Compress the image before encoding to Base64
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
-                    selected_model = "qwen/qwen3.6-27b"
+                    selected_model = "llama-3.2-11b-vision-preview"
                     
-                    messages = 
+                    messages = [
                         {
                             "role": "user",
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": """You are an expert AI Accountant. Read the handwritten or printed text in this image carefully. 
-Itemise all transaction clearly, calculate totals, and present a structured accounting report using clean makdown tables."""
+                                    "text": "You are an expert AI Accountant. Read the handwritten or printed text in this image carefully, itemise all transactions clearly, calculate totals, and present a structured accounting report using clean markdown tables."
+                                },
                                 {
                                     "type": "image_url",
                                     "image_url": {
                                         "url": f"data:image/jpeg;base64,{base64_image}"
                                     }
                                 }
-                            }
-                        ]
-                    }
+                            ]
+                        }
+                    ]
                 else:
-                    selected_model = "qwen/qwen3.6-27b"
-                    prompt = (
-                    You are an expert AI Accountant. Analyse the attached document or notes,
-"itemize all transaction clearly, calculate the totals and present a structured
-"accounting report using clean markdown tables."   )                 
-                     
+                    selected_model = "llama-3.3-70b-versatile"
+                    prompt = f"""
+                    You are an expert AI Accountant. Parse the following accounting text, itemize all transactions clearly, calculate totals, and present a structured accounting report using clean markdown tables.
+
                     Text to analyze:
                     {pasted_text}
                     """
                     messages = [{"role": "user", "content": prompt}]
 
-                # API Call to Groq
+                # API Call to Groq (Strict JSON parameter removed)
                 response = client.chat.completions.create(
                     model=selected_model,
-                    messages=messages,
-                                  )
+                    messages=messages
+                )
 
                 report_output = response.choices[0].message.content
-                
+
                 st.success("✅ Financial Processing Complete!")
                 st.markdown(report_output)
-
-                                   label="📥 Download Structured Excel Spreadsheet",
-                            data=file_data,
-                            file_name=f"{statement.business_name}_Ledger.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
-                        )
 
             except Exception as error:
                 st.error(f"❌ Processing Error: {str(error)}")
