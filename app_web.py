@@ -37,11 +37,13 @@ def compress_image(image_bytes: bytes, max_size: tuple = (640, 640), quality: in
     img.save(buffer, format="JPEG", quality=quality, optimize=True)
     return buffer.getvalue()
 
-# 4. Pydantic Schemas for Structured AI Outputs
+# 4. Pydantic Schemas for Hierarchical Ledger Outputs
 class Transaction(BaseModel):
     date: Optional[str] = Field(None, description="Date of transaction in YYYY-MM-DD or original format")
+    period_week: str = Field("WEEK ONE", description="Operational week or time block e.g. WEEK ONE, WEEK TWO")
+    flow_type: str = Field("EXPENSE", description="Type of financial flow: INCOME or EXPENSE")
     description: str = Field(..., description="Description of the item or service")
-    category: str = Field(..., description="General business category like Revenue, Sales, Rent, Maintenance, Utilities, Salaries, Supplies, Fuel, Equipment")
+    category: str = Field(..., description="Specific sub-category e.g. Cash Income, Transfer Income, Cash Expenses, Bank Expenses")
     amount: float = Field(..., description="Numerical cost or income amount")
 
 class FinancialStatement(BaseModel):
@@ -49,7 +51,7 @@ class FinancialStatement(BaseModel):
     period: str = Field("Unknown Period", description="Time period covered")
     currency: str = Field("NGN", description="Currency symbol or code")
     reported_grand_total: float = Field(0.0, description="Calculated grand total of transactions")
-    transactions: List[Transaction] = Field(default_factory=list, description="List of extracted transactions")
+    transactions: List[Transaction] = Field(default_factory=list, description="List of extracted hierarchical transactions")
 
 # 5. Deep Modern Fintech CSS Customizations
 st.markdown("""
@@ -137,7 +139,7 @@ st.markdown("""
     <div class="hero-card">
         <span class="hero-badge">⚡ Enterprise AI Financial Suite</span>
         <div class="hero-title">AI Financial Bookkeeper</div>
-        <div class="hero-subtitle">Instantly extract, categorize, and audit universal business records, sales notes, and receipts with dynamic category breakdown tables and structured Excel exports.</div>
+        <div class="hero-subtitle">Instantly extract, compartmentalize, and audit business records with professional multi-week departmental tables and institutional Excel reports.</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -175,7 +177,7 @@ if input_method == "Snap Photo of Book/Receipt":
 elif input_method == "Paste Text/Notes":
     pasted_text = st.text_area(
         "Paste sales logs, receipt details, or expense records below:",
-        placeholder="e.g.,\n01/08/2026 - Client Consultation Sales - 150,000 NGN\n02/08/2026 - Generator Diesel Fuel - 45,000 NGN\n03/08/2026 - Office Rent Payment - 250,000 NGN",
+        placeholder="e.g.,\nWeek One:\n- Cash Income Fresh Dew: 9,300\n- Tithe Zenith: 2,500\n- Bus Service Expense: 15,000",
         height=180
     )
 
@@ -213,10 +215,30 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
     elif not captured_image_bytes and not pasted_text.strip():
         st.warning("⚠️ Please snap a photo, upload a document, or paste transaction notes first.")
     else:
-        with st.spinner("⚡ Processing records with Groq AI engine..."):
+        with st.spinner("⚡ Processing records into hierarchical ledger format with Groq AI..."):
             try:
                 client = Groq(api_key=api_key)
                 
+                system_instructions = """You are an expert corporate AI Accountant and Auditor. Read the records carefully and structure them hierarchically like institutional ledgers (e.g., separated by operational weeks/periods, flow types like INCOME or EXPENSE, and precise categories such as Cash Income, Transfer Income, Cash Expenses, Bank Expenses). 
+
+Return ONLY valid JSON matching this exact structure:
+{
+  "business_name": "string",
+  "period": "string",
+  "currency": "string",
+  "reported_grand_total": 0.0,
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD or N/A",
+      "period_week": "WEEK ONE",
+      "flow_type": "INCOME or EXPENSE",
+      "description": "item name",
+      "category": "Cash Income or Cash Expenses etc",
+      "amount": 0.0
+    }
+  ]
+}"""
+
                 if captured_image_bytes:
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
@@ -226,46 +248,14 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                         {
                             "role": "user",
                             "content": [
-                                {
-                                    "type": "text",
-                                    "text": """You are an expert corporate AI Accountant. Read the handwritten or printed text in this image carefully. 
-Extract all records, assign clean universal business categories (e.g., Revenue, Sales, Rent, Maintenance, Utilities, Salaries, Supplies, Fuel, Equipment, General Expenses), then return ONLY valid JSON matching this exact structure:
-{
-  "business_name": "string",
-  "period": "string",
-  "currency": "string",
-  "reported_grand_total": 0.0,
-  "transactions": [
-    {"date": "YYYY-MM-DD", "description": "item name", "category": "category name", "amount": 0.0}
-  ]
-}"""
-                                },
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{base64_image}"
-                                    }
-                                }
+                                {"type": "text", "text": system_instructions},
+                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                             ]
                         }
                     ]
                 else:
                     selected_model = "llama-3.3-70b-versatile"
-                    prompt = f"""
-                    You are an expert corporate AI Accountant. Parse the following accounting records, assign universal professional business categories (e.g., Revenue, Sales, Rent, Maintenance, Utilities, Salaries, Supplies, Fuel, Equipment, General Expenses), and return ONLY valid JSON matching this exact structure:
-                    {{
-                      "business_name": "string",
-                      "period": "string",
-                      "currency": "string",
-                      "reported_grand_total": 0.0,
-                      "transactions": [
-                        {{"date": "YYYY-MM-DD", "description": "item name", "category": "category name", "amount": 0.0}}
-                      ]
-                    }}
-
-                    Text to analyze:
-                    {pasted_text}
-                    """
+                    prompt = f"{system_instructions}\n\nRecords to analyze:\n{pasted_text}"
                     messages = [{"role": "user", "content": prompt}]
 
                 # API Call to Groq
@@ -300,31 +290,31 @@ Extract all records, assign clean universal business categories (e.g., Revenue, 
 
                     # --- Interactive Sidebar Filter ---
                     st.sidebar.markdown("### 🔍 Filter Audit View")
-                    categories_list = ["All Categories"] + list(df_result['category'].unique())
-                    selected_cat_filter = st.sidebar.selectbox("Select Category View", categories_list)
+                    weeks_list = ["All Weeks"] + list(df_result['period_week'].unique())
+                    selected_week_filter = st.sidebar.selectbox("Select Operational Week", weeks_list)
 
-                    if selected_cat_filter != "All Categories":
-                        df_display = df_result[df_result['category'] == selected_cat_filter]
+                    if selected_week_filter != "All Weeks":
+                        df_display = df_result[df_result['period_week'] == selected_week_filter]
                     else:
                         df_display = df_result
 
                     # --- Main Complete Table ---
-                    st.subheader("📋 Master General Ledger")
+                    st.subheader("📋 Master Institutional Ledger")
                     st.dataframe(df_display, use_container_width=True)
 
-                    # --- Professional Automatically Split Category Tables ---
+                    # --- Professional Weekly & Flow-Based Breakdowns ---
                     st.markdown("<br>", unsafe_allow_html=True)
-                    st.subheader("📂 Departmental / Category Breakdowns")
+                    st.subheader("📂 Period & Departmental Breakdown")
                     
-                    unique_categories = df_result['category'].unique()
-                    for cat in unique_categories:
-                        with st.expander(f"🏷️ Category: {cat}", expanded=True):
-                            df_cat_subset = df_result[df_result['category'] == cat]
-                            st.dataframe(df_cat_subset, use_container_width=True)
-                            cat_subtotal = df_cat_subset['amount'].sum()
-                            st.caption(f"**Subtotal for {cat}:** {statement.currency} {cat_subtotal:,.2f}")
+                    unique_weeks = df_result['period_week'].unique()
+                    for wk in unique_weeks:
+                        with st.expander(f"📅 Operational Period: {wk}", expanded=True):
+                            df_wk_subset = df_result[df_result['period_week'] == wk]
+                            st.dataframe(df_wk_subset, use_container_width=True)
+                            wk_total = df_wk_subset['amount'].sum()
+                            st.caption(f"**Total Volume for {wk}:** {statement.currency} {wk_total:,.2f}")
 
-                    # --- Professional Structured Excel Export with Subtotal Rows ---
+                    # --- Institutional Structured Excel Export (Multi-Week & Flow Layout) ---
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.subheader("📥 Export Official Audit Report")
 
@@ -333,32 +323,38 @@ Extract all records, assign clean universal business categories (e.g., Revenue, 
                     excel_filename = f"{sanitized_org_name}_Audit_{current_date_str}.xlsx"
                     
                     export_rows = []
-                    for cat in unique_categories:
-                        df_cat_subset = df_result[df_result['category'] == cat]
+                    for wk in unique_weeks:
+                        df_wk_subset = df_result[df_result['period_week'] == wk]
                         
-                        export_rows.append({"date": f"--- CATEGORY: {cat.upper()} ---", "description": "", "category": "", "amount": ""})
+                        # Section Header for Week
+                        export_rows.append({"date": f"=== {wk.upper()} ===", "description": "", "category": "", "amount": ""})
                         
-                        for _, row in df_cat_subset.iterrows():
-                            export_rows.append(row.to_dict())
+                        for _, row in df_wk_subset.iterrows():
+                            export_rows.append({
+                                "date": row["date"],
+                                "description": row["description"],
+                                "category": f"[{row['flow_type']}] {row['category']}",
+                                "amount": row["amount"]
+                            })
                             
-                        cat_subtotal = df_cat_subset['amount'].sum()
-                        export_rows.append({"date": "", "description": f"SUBTOTAL FOR {cat.upper()}", "category": cat, "amount": cat_subtotal})
+                        wk_subtotal = df_wk_subset['amount'].sum()
+                        export_rows.append({"date": "", "description": f"TOTAL FOR {wk.upper()}", "category": "", "amount": wk_subtotal})
                         export_rows.append({"date": "", "description": "", "category": "", "amount": ""})
 
                     df_structured_export = pd.DataFrame(export_rows)
 
                     with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
-                        df_structured_export.to_excel(writer, sheet_name='Categorized Ledger', index=False)
+                        df_structured_export.to_excel(writer, sheet_name='Institutional Ledger', index=False)
                         
-                        worksheet = writer.sheets['Categorized Ledger']
+                        worksheet = writer.sheets['Institutional Ledger']
                         for col in worksheet.columns:
                             max_len = max(len(str(cell.value or '')) for cell in col)
                             col_letter = col[0].column_letter
-                            worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+                            worksheet.column_dimensions[col_letter].width = max(max_len + 4, 16)
                     
                     with open(excel_filename, "rb") as file_data:
                         st.download_button(
-                            label="📥 Download Structured & Categorized Excel Report",
+                            label="📥 Download Institutional Structured Excel Report",
                             data=file_data,
                             file_name=excel_filename,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
