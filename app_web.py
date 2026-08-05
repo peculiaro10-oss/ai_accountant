@@ -226,7 +226,7 @@ Itemise all transaction clearly, calculate totals, and present a structured acco
                                         "url": f"data:image/jpeg;base64,{base64_image}"
                                     }
                                 }
-                            ]
+                            }
                         }
                     ]
                 else:
