@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from PIL import Image
 from datetime import datetime
+from openpyxl.styles import Font, PatternFill, Alignment
 
 # 1. Load secret environment variables (.env file)
 load_dotenv()
@@ -314,7 +315,7 @@ Return ONLY valid JSON matching this exact structure:
                             wk_total = df_wk_subset['amount'].sum()
                             st.caption(f"**Total Volume for {wk}:** {statement.currency} {wk_total:,.2f}")
 
-                    # --- Institutional Structured Excel Export (Multi-Week & Flow Layout) ---
+                    # --- Institutional Structured Excel Export with Uppercase & Bold Headers ---
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.subheader("📥 Export Official Audit Report")
 
@@ -327,19 +328,19 @@ Return ONLY valid JSON matching this exact structure:
                         df_wk_subset = df_result[df_result['period_week'] == wk]
                         
                         # Section Header for Week
-                        export_rows.append({"date": f"=== {wk.upper()} ===", "description": "", "category": "", "amount": ""})
+                        export_rows.append({"DATE": f"=== {wk.upper()} ===", "DESCRIPTION": "", "CATEGORY": "", "AMOUNT": ""})
                         
                         for _, row in df_wk_subset.iterrows():
                             export_rows.append({
-                                "date": row["date"],
-                                "description": row["description"],
-                                "category": f"[{row['flow_type']}] {row['category']}",
-                                "amount": row["amount"]
+                                "DATE": row["date"],
+                                "DESCRIPTION": row["description"],
+                                "CATEGORY": f"[{row['flow_type']}] {row['category']}",
+                                "AMOUNT": row["amount"]
                             })
                             
                         wk_subtotal = df_wk_subset['amount'].sum()
-                        export_rows.append({"date": "", "description": f"TOTAL FOR {wk.upper()}", "category": "", "amount": wk_subtotal})
-                        export_rows.append({"date": "", "description": "", "category": "", "amount": ""})
+                        export_rows.append({"DATE": "", "DESCRIPTION": f"TOTAL FOR {wk.upper()}", "CATEGORY": "", "AMOUNT": wk_subtotal})
+                        export_rows.append({"DATE": "", "DESCRIPTION": "", "CATEGORY": "", "AMOUNT": ""})
 
                     df_structured_export = pd.DataFrame(export_rows)
 
@@ -347,6 +348,18 @@ Return ONLY valid JSON matching this exact structure:
                         df_structured_export.to_excel(writer, sheet_name='Institutional Ledger', index=False)
                         
                         worksheet = writer.sheets['Institutional Ledger']
+                        
+                        # Apply Bold & Uppercase styling to header row (Row 1)
+                        header_font = Font(name='Plus Jakarta Sans', size=11, bold=True, color="FFFFFF")
+                        header_fill = PatternFill(start_color="1E1B4B", end_color="1E1B4B", fill_type="solid")
+                        
+                        for col_num in range(1, len(df_structured_export.columns) + 1):
+                            cell = worksheet.cell(row=1, column=col_num)
+                            cell.font = header_font
+                            cell.fill = header_fill
+                            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+                        # Auto-adjust column widths
                         for col in worksheet.columns:
                             max_len = max(len(str(cell.value or '')) for cell in col)
                             col_letter = col[0].column_letter
