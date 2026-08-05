@@ -5,3 +5,5 @@ pydantic
 openpyxl
 python-dotenv
 Pillow
+python-docx
+lxml
