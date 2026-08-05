@@ -40,7 +40,7 @@ def compress_image(image_bytes: bytes, max_size: tuple = (640, 640), quality: in
 
 # 4. Pydantic Schemas for Hierarchical Ledger Outputs
 class Transaction(BaseModel):
-    date: Optional[str] = Field(None, description="Date of transaction in YYYY-MM-DD or original format")
+    date: Optional[str] = Field("2026-06-01", description="Date of transaction in YYYY-MM-DD. If missing, default to the start of the month or N/A")
     period_week: str = Field("WEEK ONE", description="Operational week or time block e.g. WEEK ONE, WEEK TWO")
     flow_type: str = Field("EXPENSE", description="Type of financial flow: INCOME or EXPENSE")
     description: str = Field(..., description="Description of the item or service")
@@ -233,7 +233,8 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
             try:
                 client = Groq(api_key=api_key)
                 
-                system_instructions = """You are an expert corporate AI Accountant and Auditor. Read the records carefully and structure them hierarchically like institutional ledgers (e.g., separated by operational weeks/periods, flow types like INCOME or EXPENSE, and precise categories such as Cash Income, Transfer Income, Cash Expenses, Bank Expenses). 
+                system_instructions = """You are an expert corporate AI Accountant and Auditor. Read the records carefully and structure them hierarchically like institutional ledgers (separated by operational weeks/periods like WEEK ONE, WEEK TWO, flow types like INCOME or EXPENSE, and categories). 
+If a date is not provided for a transaction, infer a realistic date or default to the start of the reporting period (e.g., 2026-06-01) rather than leaving it blank or NA.
 
 Return ONLY valid JSON matching this exact structure:
 {
@@ -243,7 +244,7 @@ Return ONLY valid JSON matching this exact structure:
   "reported_grand_total": 0.0,
   "transactions": [
     {
-      "date": "YYYY-MM-DD or N/A",
+      "date": "YYYY-MM-DD",
       "period_week": "WEEK ONE",
       "flow_type": "INCOME or EXPENSE",
       "description": "item name",
@@ -328,7 +329,7 @@ Return ONLY valid JSON matching this exact structure:
                             wk_total = df_wk_subset['amount'].sum()
                             st.caption(f"**Total Volume for {wk}:** {statement.currency} {wk_total:,.2f}")
 
-                    # --- Institutional Structured Excel Export with Full Professional Spreadsheet Colors ---
+                    # --- Institutional Structured Excel Export with Grand Total & Comma Formatting ---
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.subheader("📥 Export Official Audit Report")
 
@@ -345,7 +346,7 @@ Return ONLY valid JSON matching this exact structure:
                         
                         for _, row in df_wk_subset.iterrows():
                             export_rows.append({
-                                "DATE": row["date"],
+                                "DATE": row["date"] if row["date"] else "N/A",
                                 "DESCRIPTION": row["description"],
                                 "CATEGORY": f"[{row['flow_type']}] {row['category']}",
                                 "AMOUNT": row["amount"]
@@ -354,6 +355,11 @@ Return ONLY valid JSON matching this exact structure:
                         wk_subtotal = df_wk_subset['amount'].sum()
                         export_rows.append({"DATE": "", "DESCRIPTION": f"TOTAL FOR {wk.upper()}", "CATEGORY": "", "AMOUNT": wk_subtotal})
                         export_rows.append({"DATE": "", "DESCRIPTION": "", "CATEGORY": "", "AMOUNT": ""})
+
+                    # Add Grand Total Summary Row at the bottom
+                    grand_total_val = df_result['amount'].sum()
+                    export_rows.append({"DATE": "=== SUMMARY ===", "DESCRIPTION": "", "CATEGORY": "", "AMOUNT": ""})
+                    export_rows.append({"DATE": "", "DESCRIPTION": "GRAND TOTAL FOR THE MONTH", "CATEGORY": "OVERALL", "AMOUNT": grand_total_val})
 
                     df_structured_export = pd.DataFrame(export_rows)
 
@@ -372,6 +378,9 @@ Return ONLY valid JSON matching this exact structure:
                         total_font = Font(name='Plus Jakarta Sans', size=10, bold=True, color="0F172A")
                         total_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid") # Slate Gray Accent
                         
+                        grand_total_font = Font(name='Plus Jakarta Sans', size=11, bold=True, color="FFFFFF")
+                        grand_total_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid") # Dark Charcoal/Navy for Grand Total
+                        
                         zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid") # Light Zebra Striping
                         
                         thin_border = Border(
@@ -389,7 +398,7 @@ Return ONLY valid JSON matching this exact structure:
                             cell.alignment = Alignment(horizontal="center", vertical="center")
                             cell.border = thin_border
 
-                        # Iterate through data rows to apply professional color fills and borders
+                        # Iterate through data rows to apply professional formatting, commas, and colors
                         for r_idx in range(2, len(df_structured_export) + 2):
                             val_date = worksheet.cell(row=r_idx, column=1).value
                             val_desc = str(worksheet.cell(row=r_idx, column=2).value or '')
@@ -399,14 +408,24 @@ Return ONLY valid JSON matching this exact structure:
                                 cell.border = thin_border
                                 cell.font = Font(name='Plus Jakarta Sans', size=10)
                                 
+                                # Format amount column with thousands comma separators (#,##0.00)
+                                if c_idx == 4 and isinstance(cell.value, (int, float)):
+                                    cell.number_format = '#,##0.00'
+                                    cell.alignment = Alignment(horizontal="right", vertical="center")
+
                                 # Highlight Section Headers
-                                if val_date and str(val_date).startswith("==="):
+                                if val_date and (str(val_date).startswith("===")):
                                     cell.font = section_font
                                     cell.fill = section_fill
                                     if c_idx == 1:
                                         cell.alignment = Alignment(horizontal="left", vertical="center")
                                         
-                                # Highlight Subtotals
+                                # Highlight Grand Total Row
+                                elif "GRAND TOTAL FOR" in val_desc:
+                                    cell.font = grand_total_font
+                                    cell.fill = grand_total_fill
+                                    
+                                # Highlight Weekly Subtotals
                                 elif "TOTAL FOR" in val_desc:
                                     cell.font = total_font
                                     cell.fill = total_fill
