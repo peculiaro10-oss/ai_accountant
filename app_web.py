@@ -22,8 +22,8 @@ st.set_page_config(
 )
 
 # 3. Helper Function to Compress Images
-def compress_image(image_bytes: bytes, max_size: tuple = (1024, 1024), quality: int = 70) -> bytes:
-    """Resizes and compresses image bytes to speed up API requests."""
+def compress_image(image_bytes: bytes, max_size: tuple = (640, 640), quality: int = 50) -> bytes:
+    """Resizes and compresses image bytes aggressively to speed up API requests and stay within API token rate limits."""
     img = Image.open(io.BytesIO(image_bytes))
     
     # Convert RGBA/PNG to RGB for JPEG conversion
