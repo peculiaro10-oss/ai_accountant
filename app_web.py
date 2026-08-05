@@ -10,6 +10,10 @@ from typing import List, Optional
 from PIL import Image
 from datetime import datetime
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from docx import Document
+from docx.shared import Inches, Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
 
 # 1. Load secret environment variables (.env file)
 load_dotenv()
@@ -25,22 +29,18 @@ st.set_page_config(
 
 # 3. Helper Function to Compress Images
 def compress_image(image_bytes: bytes, max_size: tuple = (640, 640), quality: int = 50) -> bytes:
-    """Resizes and compresses image bytes aggressively to speed up API requests and stay within API token rate limits."""
+    """Resizes and compresses image bytes aggressively to speed up API requests."""
     img = Image.open(io.BytesIO(image_bytes))
-    
-    # Convert RGBA/PNG to RGB for JPEG conversion
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
-        
     img.thumbnail(max_size, Image.Resampling.LANCZOS)
-    
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG", quality=quality, optimize=True)
     return buffer.getvalue()
 
 # 4. Pydantic Schemas for Hierarchical Ledger Outputs
 class Transaction(BaseModel):
-    date: Optional[str] = Field("2026-06-01", description="Date of transaction in YYYY-MM-DD. If missing, default to the start of the month or N/A")
+    date: Optional[str] = Field("2026-06-01", description="Date of transaction in YYYY-MM-DD. If missing, default to start of month")
     period_week: str = Field("WEEK ONE", description="Operational week or time block e.g. WEEK ONE, WEEK TWO")
     flow_type: str = Field("EXPENSE", description="Type of financial flow: INCOME or EXPENSE")
     description: str = Field(..., description="Description of the item or service")
@@ -133,7 +133,6 @@ st.markdown("""
         color: #38bdf8;
     }
 
-    /* Force Streamlit Dataframe Table Headers to be Uppercase and Bold */
     thead th {
         font-weight: 800 !important;
         text-transform: uppercase !important;
@@ -147,7 +146,7 @@ st.markdown("""
     <div class="hero-card">
         <span class="hero-badge">⚡ Enterprise AI Financial Suite</span>
         <div class="hero-title">AI Financial Bookkeeper</div>
-        <div class="hero-subtitle">Instantly extract, compartmentalize, and audit business records with professional multi-week departmental tables and institutional Excel reports.</div>
+        <div class="hero-subtitle">Instantly extract, compartmentalize, and audit business records with professional multi-week departmental tables and institutional Excel/Word reports.</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -162,7 +161,7 @@ with m3:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 8. Selection Mode
+# 8. Selection Mode (Now supporting Word .docx upload)
 st.subheader("Select Ledger Input Method")
 input_method = st.radio(
     "Choose Input Method:",
@@ -176,7 +175,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 captured_image_bytes = None
 pasted_text = ""
 
-# 9. Dynamic Inputs Handling
 if input_method == "Snap Photo of Book/Receipt":
     camera_photo = st.camera_input("Capture image of physical receipt or paper ledger")
     if camera_photo:
@@ -191,8 +189,8 @@ elif input_method == "Paste Text/Notes":
 
 elif input_method == "Upload File":
     uploaded_file = st.file_uploader(
-        "Upload statement or ledger (CSV, TXT, Images, Excel)", 
-        type=["csv", "txt", "png", "jpg", "jpeg", "xlsx", "xls"]
+        "Upload statement or ledger (CSV, TXT, Images, Excel, Word .docx)", 
+        type=["csv", "txt", "png", "jpg", "jpeg", "xlsx", "xls", "docx"]
     )
     if uploaded_file is not None:
         if uploaded_file.type.startswith("image"):
@@ -209,6 +207,13 @@ elif input_method == "Upload File":
                 elif uploaded_file.name.endswith((".xlsx", ".xls")):
                     df_temp = pd.read_excel(uploaded_file)
                     pasted_text = df_temp.to_string()
+                elif uploaded_file.name.endswith(".docx"):
+                    doc = Document(uploaded_file)
+                    fullText = [para.text for para in doc.paragraphs]
+                    for table in doc.tables:
+                        for row in table.rows:
+                            fullText.append(" | ".join([cell.text.strip() for cell in row.cells]))
+                    pasted_text = "\n".join(fullText)
                 else:
                     pasted_text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
             except Exception as e:
@@ -216,7 +221,6 @@ elif input_method == "Upload File":
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Helper function to capitalize dataframe column headers for web display
 def uppercase_headers(df):
     df_copy = df.copy()
     df_copy.columns = [str(col).upper() for col in df_copy.columns]
@@ -234,7 +238,7 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                 client = Groq(api_key=api_key)
                 
                 system_instructions = """You are an expert corporate AI Accountant and Auditor. Read the records carefully and structure them hierarchically like institutional ledgers (separated by operational weeks/periods like WEEK ONE, WEEK TWO, flow types like INCOME or EXPENSE, and categories). 
-If a date is not provided for a transaction, infer a realistic date or default to the start of the reporting period (e.g., 2026-06-01) rather than leaving it blank or NA.
+If a date is not provided for a transaction, infer a realistic date or default to the start of the reporting period (e.g., 2026-06-01).
 
 Return ONLY valid JSON matching this exact structure:
 {
@@ -258,22 +262,18 @@ Return ONLY valid JSON matching this exact structure:
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
                     selected_model = "qwen/qwen3.6-27b"
-                    
-                    messages = [
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": system_instructions},
-                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                            ]
-                        }
-                    ]
+                    messages = [{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": system_instructions},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                        ]
+                    }]
                 else:
                     selected_model = "llama-3.3-70b-versatile"
                     prompt = f"{system_instructions}\n\nRecords to analyze:\n{pasted_text}"
                     messages = [{"role": "user", "content": prompt}]
 
-                # API Call to Groq
                 response = client.chat.completions.create(
                     model=selected_model,
                     messages=messages,
@@ -313,11 +313,9 @@ Return ONLY valid JSON matching this exact structure:
                     else:
                         df_display = df_result
 
-                    # --- Main Complete Table (Headers Capitalized) ---
                     st.subheader("📋 Master Institutional Ledger")
                     st.dataframe(uppercase_headers(df_display), use_container_width=True)
 
-                    # --- Professional Weekly & Flow-Based Breakdowns ---
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.subheader("📂 Period & Departmental Breakdown")
                     
@@ -329,21 +327,20 @@ Return ONLY valid JSON matching this exact structure:
                             wk_total = df_wk_subset['amount'].sum()
                             st.caption(f"**Total Volume for {wk}:** {statement.currency} {wk_total:,.2f}")
 
-                    # --- Institutional Structured Excel Export with Grand Total & Comma Formatting ---
+                    # --- SIDE-BY-SIDE DOWNLOAD BUTTONS (Excel & Word) ---
                     st.markdown("<br>", unsafe_allow_html=True)
-                    st.subheader("📥 Export Official Audit Report")
+                    st.subheader("📥 Export Official Audit Reports")
 
                     current_date_str = datetime.now().strftime("%Y-%m-%d")
                     sanitized_org_name = statement.business_name.replace(" ", "_")
                     excel_filename = f"{sanitized_org_name}_Audit_{current_date_str}.xlsx"
-                    
+                    word_filename = f"{sanitized_org_name}_Audit_{current_date_str}.docx"
+
+                    # Prepare export rows data structure
                     export_rows = []
                     for wk in unique_weeks:
                         df_wk_subset = df_result[df_result['period_week'] == wk]
-                        
-                        # Section Header for Week
                         export_rows.append({"DATE": f"=== {wk.upper()} ===", "DESCRIPTION": "", "CATEGORY": "", "AMOUNT": ""})
-                        
                         for _, row in df_wk_subset.iterrows():
                             export_rows.append({
                                 "DATE": row["date"] if row["date"] else "N/A",
@@ -351,46 +348,34 @@ Return ONLY valid JSON matching this exact structure:
                                 "CATEGORY": f"[{row['flow_type']}] {row['category']}",
                                 "AMOUNT": row["amount"]
                             })
-                            
                         wk_subtotal = df_wk_subset['amount'].sum()
                         export_rows.append({"DATE": "", "DESCRIPTION": f"TOTAL FOR {wk.upper()}", "CATEGORY": "", "AMOUNT": wk_subtotal})
                         export_rows.append({"DATE": "", "DESCRIPTION": "", "CATEGORY": "", "AMOUNT": ""})
 
-                    # Add Grand Total Summary Row at the bottom
                     grand_total_val = df_result['amount'].sum()
                     export_rows.append({"DATE": "=== SUMMARY ===", "DESCRIPTION": "", "CATEGORY": "", "AMOUNT": ""})
                     export_rows.append({"DATE": "", "DESCRIPTION": "GRAND TOTAL FOR THE MONTH", "CATEGORY": "OVERALL", "AMOUNT": grand_total_val})
 
                     df_structured_export = pd.DataFrame(export_rows)
 
-                    with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
+                    # 1. Generate Excel File in Memory
+                    excel_buffer = io.BytesIO()
+                    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                         df_structured_export.to_excel(writer, sheet_name='Institutional Ledger', index=False)
-                        
                         worksheet = writer.sheets['Institutional Ledger']
                         
-                        # Executive Color Palette Styling
                         header_font = Font(name='Plus Jakarta Sans', size=11, bold=True, color="FFFFFF")
-                        header_fill = PatternFill(start_color="1E1B4B", end_color="1E1B4B", fill_type="solid") # Dark Indigo
-                        
+                        header_fill = PatternFill(start_color="1E1B4B", end_color="1E1B4B", fill_type="solid")
                         section_font = Font(name='Plus Jakarta Sans', size=10, bold=True, color="1E1B4B")
-                        section_fill = PatternFill(start_color="E0E7FF", end_color="E0E7FF", fill_type="solid") # Soft Blue Accent
-                        
+                        section_fill = PatternFill(start_color="E0E7FF", end_color="E0E7FF", fill_type="solid")
                         total_font = Font(name='Plus Jakarta Sans', size=10, bold=True, color="0F172A")
-                        total_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid") # Slate Gray Accent
-                        
+                        total_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
                         grand_total_font = Font(name='Plus Jakarta Sans', size=11, bold=True, color="FFFFFF")
-                        grand_total_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid") # Dark Charcoal/Navy for Grand Total
+                        grand_total_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+                        zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
                         
-                        zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid") # Light Zebra Striping
-                        
-                        thin_border = Border(
-                            left=Side(style='thin', color='CBD5E1'),
-                            right=Side(style='thin', color='CBD5E1'),
-                            top=Side(style='thin', color='CBD5E1'),
-                            bottom=Side(style='thin', color='CBD5E1')
-                        )
+                        thin_border = Border(left=Side(style='thin', color='CBD5E1'), right=Side(style='thin', color='CBD5E1'), top=Side(style='thin', color='CBD5E1'), bottom=Side(style='thin', color='CBD5E1'))
 
-                        # Style Header Row (Row 1)
                         for col_num in range(1, len(df_structured_export.columns) + 1):
                             cell = worksheet.cell(row=1, column=col_num)
                             cell.font = header_font
@@ -398,54 +383,82 @@ Return ONLY valid JSON matching this exact structure:
                             cell.alignment = Alignment(horizontal="center", vertical="center")
                             cell.border = thin_border
 
-                        # Iterate through data rows to apply professional formatting, commas, and colors
                         for r_idx in range(2, len(df_structured_export) + 2):
                             val_date = worksheet.cell(row=r_idx, column=1).value
                             val_desc = str(worksheet.cell(row=r_idx, column=2).value or '')
-                            
                             for c_idx in range(1, len(df_structured_export.columns) + 1):
                                 cell = worksheet.cell(row=r_idx, column=c_idx)
                                 cell.border = thin_border
                                 cell.font = Font(name='Plus Jakarta Sans', size=10)
-                                
-                                # Format amount column with thousands comma separators (#,##0.00)
                                 if c_idx == 4 and isinstance(cell.value, (int, float)):
                                     cell.number_format = '#,##0.00'
                                     cell.alignment = Alignment(horizontal="right", vertical="center")
-
-                                # Highlight Section Headers
-                                if val_date and (str(val_date).startswith("===")):
+                                if val_date and str(val_date).startswith("==="):
                                     cell.font = section_font
                                     cell.fill = section_fill
                                     if c_idx == 1:
                                         cell.alignment = Alignment(horizontal="left", vertical="center")
-                                        
-                                # Highlight Grand Total Row
                                 elif "GRAND TOTAL FOR" in val_desc:
                                     cell.font = grand_total_font
                                     cell.fill = grand_total_fill
-                                    
-                                # Highlight Weekly Subtotals
                                 elif "TOTAL FOR" in val_desc:
                                     cell.font = total_font
                                     cell.fill = total_fill
-                                    
-                                # Apply Zebra striping to standard transaction rows
                                 elif r_idx % 2 == 0 and not str(val_date).startswith("==="):
                                     cell.fill = zebra_fill
 
-                        # Auto-adjust column widths
                         for col in worksheet.columns:
                             max_len = max(len(str(cell.value or '')) for cell in col)
                             col_letter = col[0].column_letter
                             worksheet.column_dimensions[col_letter].width = max(max_len + 4, 18)
-                    
-                    with open(excel_filename, "rb") as file_data:
+                    excel_data = excel_buffer.getvalue()
+
+                    # 2. Generate Word (.docx) File in Memory
+                    doc = Document()
+                    doc.add_heading(f"Official Audit Report: {statement.business_name}", level=1)
+                    p = doc.add_paragraph(f"Reporting Period: {statement.period} | Currency: {statement.currency}")
+                    p.runs[0].font.size = Pt(12)
+                    p.runs[0].font.color.rgb = RGBColor(100, 100, 100)
+
+                    table = doc.add_table(rows=1, cols=4)
+                    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+                    hdr_cells = table.rows[0].cells
+                    headers = ["DATE", "DESCRIPTION", "CATEGORY", "AMOUNT"]
+                    for i, h_text in enumerate(headers):
+                        hdr_cells[i].text = h_text
+                        hdr_cells[i].paragraphs[0].runs[0].font.bold = True
+                        hdr_cells[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                        shading = parse_xml(r'<w:shd {} w:fill="1E1B4B"/>'.format(nsdecls('w')))
+                        hdr_cells[i]._tc.get_or_add_tcPr().append(shading)
+
+                    for row_item in export_rows:
+                        row_cells = table.add_row().cells
+                        row_cells[0].text = str(row_item["DATE"])
+                        row_cells[1].text = str(row_item["DESCRIPTION"])
+                        row_cells[2].text = str(row_item["CATEGORY"])
+                        amt_val = row_item["AMOUNT"]
+                        row_cells[3].text = f"{amt_val:,.2f}" if isinstance(amt_val, (int, float)) else str(amt_val)
+
+                    word_buffer = io.BytesIO()
+                    doc.save(word_buffer)
+                    word_data = word_buffer.getvalue()
+
+                    # --- SIDE BY SIDE BUTTON COLUMNS ---
+                    dl_col1, dl_col2 = st.columns(2)
+                    with dl_col1:
                         st.download_button(
-                            label="📥 Download Institutional Structured Excel Report",
-                            data=file_data,
+                            label="📥 Download Excel Report (.xlsx)",
+                            data=excel_data,
                             file_name=excel_filename,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                    with dl_col2:
+                        st.download_button(
+                            label="📥 Download Word Report (.docx)",
+                            data=word_data,
+                            file_name=word_filename,
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                             use_container_width=True
                         )
 
