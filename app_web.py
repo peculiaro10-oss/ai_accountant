@@ -8,6 +8,7 @@ from groq import Groq
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from PIL import Image
+from datetime import datetime
 
 # 1. Load secret environment variables (.env file)
 load_dotenv()
@@ -15,7 +16,7 @@ api_key = os.getenv("GROQ_API_KEY")
 
 # 2. Page Config
 st.set_page_config(
-    page_title="AI Financial Bookkeeper", 
+    page_title="AI Financial Bookkeeper | Enterprise Ledger", 
     page_icon="⚡", 
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -40,11 +41,11 @@ def compress_image(image_bytes: bytes, max_size: tuple = (640, 640), quality: in
 class Transaction(BaseModel):
     date: Optional[str] = Field(None, description="Date of transaction in YYYY-MM-DD or original format")
     description: str = Field(..., description="Description of the item or service")
-    category: str = Field(..., description="Category like Revenue, Rent, Fuel, Supplies, Equipment")
+    category: str = Field(..., description="General business category like Revenue, Sales, Rent, Maintenance, Utilities, Salaries, Supplies, Fuel, Equipment")
     amount: float = Field(..., description="Numerical cost or income amount")
 
 class FinancialStatement(BaseModel):
-    business_name: str = Field("Unknown Business", description="Name of business")
+    business_name: str = Field("Unknown Business", description="Name of organization or business")
     period: str = Field("Unknown Period", description="Time period covered")
     currency: str = Field("NGN", description="Currency symbol or code")
     reported_grand_total: float = Field(0.0, description="Calculated grand total of transactions")
@@ -134,9 +135,9 @@ st.markdown("""
 # 6. Top Hero Section
 st.markdown("""
     <div class="hero-card">
-        <span class="hero-badge">⚡ AI-Powered Financial Suite</span>
+        <span class="hero-badge">⚡ Enterprise AI Financial Suite</span>
         <div class="hero-title">AI Financial Bookkeeper</div>
-        <div class="hero-subtitle">Snap a photo of paper ledgers, paste transaction logs, or upload documents to instantly extract, structure, and audit financial records.</div>
+        <div class="hero-subtitle">Instantly extract, categorize, and audit universal business records, sales notes, and receipts with dynamic category breakdown tables and secure Excel exports.</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -145,9 +146,9 @@ m1, m2, m3 = st.columns(3)
 with m1:
     st.metric(label="System Status", value="Active", delta="Ready")
 with m2:
-    st.metric(label="AI Engine", value="Groq LLaMA-3", delta="Ultra-Fast")
+    st.metric(label="AI Engine", value="Groq LLaMA-3.3 / Qwen", delta="High Precision")
 with m3:
-    st.metric(label="Audit Security", value="Encrypted", delta="Local .env")
+    st.metric(label="Audit Security", value="Encrypted", delta="Secure Local")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -165,7 +166,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 captured_image_bytes = None
 pasted_text = ""
 
-# 9. Dynamic Inputs Handling (Robust Fallback Parsing Added)
+# 9. Dynamic Inputs Handling
 if input_method == "Snap Photo of Book/Receipt":
     camera_photo = st.camera_input("Capture image of physical receipt or paper ledger")
     if camera_photo:
@@ -174,7 +175,7 @@ if input_method == "Snap Photo of Book/Receipt":
 elif input_method == "Paste Text/Notes":
     pasted_text = st.text_area(
         "Paste sales logs, receipt details, or expense records below:",
-        placeholder="e.g.,\n01/08/2026 - Office Supplies - 15,000 NGN\n02/08/2026 - Generator Fuel - 45,000 NGN",
+        placeholder="e.g.,\n01/08/2026 - Client Consultation Sales - 150,000 NGN\n02/08/2026 - Generator Diesel Fuel - 45,000 NGN\n03/08/2026 - Office Rent Payment - 250,000 NGN",
         height=180
     )
 
@@ -216,7 +217,6 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
             try:
                 client = Groq(api_key=api_key)
                 
-                # Check if handling Vision/Image input or standard Text input
                 if captured_image_bytes:
                     compressed_bytes = compress_image(captured_image_bytes)
                     base64_image = base64.b64encode(compressed_bytes).decode('utf-8')
@@ -228,8 +228,8 @@ if st.button("🚀 Process & Generate Accounting Report", use_container_width=Tr
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": """You are an expert AI Accountant. Read the handwritten or printed text in this image carefully. 
-Extract all sales, income, and expense records, then return ONLY valid JSON matching this exact structure:
+                                    "text": """You are an expert corporate AI Accountant. Read the handwritten or printed text in this image carefully. 
+Extract all records, assign clean universal business categories (e.g., Revenue, Sales, Rent, Maintenance, Utilities, Salaries, Supplies, Fuel, Equipment, General Expenses), then return ONLY valid JSON matching this exact structure:
 {
   "business_name": "string",
   "period": "string",
@@ -252,7 +252,7 @@ Extract all sales, income, and expense records, then return ONLY valid JSON matc
                 else:
                     selected_model = "llama-3.3-70b-versatile"
                     prompt = f"""
-                    You are an expert AI Accountant. Parse the following accounting text and return ONLY valid JSON matching this exact structure:
+                    You are an expert corporate AI Accountant. Parse the following accounting records, assign universal professional business categories (e.g., Revenue, Sales, Rent, Maintenance, Utilities, Salaries, Supplies, Fuel, Equipment, General Expenses), and return ONLY valid JSON matching this exact structure:
                     {{
                       "business_name": "string",
                       "period": "string",
@@ -278,36 +278,67 @@ Extract all sales, income, and expense records, then return ONLY valid JSON matc
                 json_output = response.choices[0].message.content
                 statement = FinancialStatement.model_validate_json(json_output)
 
-                # Automatically calculate the total sum of all extracted transactions
                 if statement.transactions:
                     calculated_sum = sum(t.amount for t in statement.transactions if t.amount is not None)
                     statement.reported_grand_total = calculated_sum
 
-                st.success("✅ Financial Processing Complete!")
+                st.success("✅ Financial Audit Processing Complete!")
 
-                # Display Results Overview Metrics
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Business Name", statement.business_name)
+                # --- Professional Metric KPI Cards ---
+                st.markdown("<br>", unsafe_allow_html=True)
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Organization / Business", statement.business_name)
                 c2.metric("Reporting Period", statement.period)
-                c3.metric("Calculated Total", f"{statement.currency} {statement.reported_grand_total:,.2f}")
+                c3.metric("Total Line Items", len(statement.transactions))
+                c4.metric("Grand Total Value", f"{statement.currency} {statement.reported_grand_total:,.2f}")
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # Display Transaction Table and Download Button
                 if statement.transactions:
-                    st.subheader("📋 Audit General Ledger")
                     tx_data = [t.model_dump() for t in statement.transactions]
                     df_result = pd.DataFrame(tx_data)
-                    st.dataframe(df_result, use_container_width=True)
 
-                    excel_filename = "Financial_Ledger_Report.xlsx"
+                    # --- Interactive Sidebar Filter ---
+                    st.sidebar.markdown("### 🔍 Filter Audit View")
+                    categories_list = ["All Categories"] + list(df_result['category'].unique())
+                    selected_cat_filter = st.sidebar.selectbox("Select Category View", categories_list)
+
+                    if selected_cat_filter != "All Categories":
+                        df_display = df_result[df_result['category'] == selected_cat_filter]
+                    else:
+                        df_display = df_result
+
+                    # --- Main Complete Table ---
+                    st.subheader("📋 Master General Ledger")
+                    st.dataframe(df_display, use_container_width=True)
+
+                    # --- Professional Automatically Split Category Tables ---
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.subheader("📂 Departmental / Category Breakdowns")
+                    
+                    unique_categories = df_result['category'].unique()
+                    for cat in unique_categories:
+                        with st.expander(f"🏷️ Category: {cat}", expanded=True):
+                            df_cat_subset = df_result[df_result['category'] == cat]
+                            st.dataframe(df_cat_subset, use_container_width=True)
+                            cat_subtotal = df_cat_subset['amount'].sum()
+                            st.caption(f"**Subtotal for {cat}:** {statement.currency} {cat_subtotal:,.2f}")
+
+                    # --- Professional Timestamped Excel Export ---
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.subheader("📥 Export Official Audit Report")
+
+                    current_date_str = datetime.now().strftime("%Y-%m-%d")
+                    sanitized_org_name = statement.business_name.replace(" ", "_")
+                    excel_filename = f"{sanitized_org_name}_Audit_{current_date_str}.xlsx"
+                    
                     df_result.to_excel(excel_filename, index=False)
                     
                     with open(excel_filename, "rb") as file_data:
                         st.download_button(
-                            label="📥 Download Structured Excel Spreadsheet",
+                            label="📥 Download Official Formatted Excel Spreadsheet",
                             data=file_data,
-                            file_name=f"{statement.business_name}_Ledger.xlsx",
+                            file_name=excel_filename,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             use_container_width=True
                         )
