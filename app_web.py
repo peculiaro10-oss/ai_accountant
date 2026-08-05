@@ -232,9 +232,9 @@ Itemise all transaction clearly, calculate totals, and present a structured acco
                 else:
                     selected_model = "qwen/qwen3.6-27b"
                     prompt = (
-                    You are an expert AI Accountant. Analyse the attached document or notes, "
-"itemize all transaction clearly, calculate the totals and present a structured "
-"accounting report using clean markdown tables."   )                 {{
+                    You are an expert AI Accountant. Analyse the attached document or notes,
+"itemize all transaction clearly, calculate the totals and present a structured
+"accounting report using clean markdown tables."   )                 
                      
                     Text to analyze:
                     {pasted_text}
