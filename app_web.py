@@ -54,7 +54,7 @@ class FinancialStatement(BaseModel):
     reported_grand_total: float = Field(0.0, description="Calculated grand total of transactions")
     transactions: List[Transaction] = Field(default_factory=list, description="List of extracted hierarchical transactions")
 
-# 5. Deep Modern Fintech CSS Customizations
+# 5. Deep Modern Fintech & Table Header CSS Customizations
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -132,6 +132,13 @@ st.markdown("""
         font-weight: 700;
         color: #38bdf8;
     }
+
+    /* Force Streamlit Dataframe Table Headers to be Uppercase and Bold */
+    thead th {
+        font-weight: 800 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -208,6 +215,12 @@ elif input_method == "Upload File":
                 st.error(f"❌ Error parsing file structure: {e}")
 
 st.markdown("<br>", unsafe_allow_html=True)
+
+# Helper function to capitalize dataframe column headers for web display
+def uppercase_headers(df):
+    df_copy = df.copy()
+    df_copy.columns = [str(col).upper() for col in df_copy.columns]
+    return df_copy
 
 # 10. Main Action & Groq Execution Engine
 if st.button("🚀 Process & Generate Accounting Report", use_container_width=True):
@@ -299,9 +312,9 @@ Return ONLY valid JSON matching this exact structure:
                     else:
                         df_display = df_result
 
-                    # --- Main Complete Table ---
+                    # --- Main Complete Table (Headers Capitalized) ---
                     st.subheader("📋 Master Institutional Ledger")
-                    st.dataframe(df_display, use_container_width=True)
+                    st.dataframe(uppercase_headers(df_display), use_container_width=True)
 
                     # --- Professional Weekly & Flow-Based Breakdowns ---
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -311,7 +324,7 @@ Return ONLY valid JSON matching this exact structure:
                     for wk in unique_weeks:
                         with st.expander(f"📅 Operational Period: {wk}", expanded=True):
                             df_wk_subset = df_result[df_result['period_week'] == wk]
-                            st.dataframe(df_wk_subset, use_container_width=True)
+                            st.dataframe(uppercase_headers(df_wk_subset), use_container_width=True)
                             wk_total = df_wk_subset['amount'].sum()
                             st.caption(f"**Total Volume for {wk}:** {statement.currency} {wk_total:,.2f}")
 
